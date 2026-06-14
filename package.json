@@ -15,5 +15,9 @@
     "@types/chrome": "^0.0.268",
     "esbuild": "^0.21.0",
     "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "canvas": "^3.2.3",
+    "chrome": "^0.1.0"
   }
 }
