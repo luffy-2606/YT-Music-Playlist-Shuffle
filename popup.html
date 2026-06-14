@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YT Music True Shuffle</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 320px;
+      background: #1a1a1a;
+      color: #e8e8e8;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .header-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #f03 0%, #aa0022 100%);
+      border-radius: 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .header-icon svg { width: 16px; height: 16px; fill: #fff; }
+    .header-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .header-ver {
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
+      margin-left: auto;
+    }
+
+    /* ── Body ── */
+    #app { padding: 14px 16px 16px; }
+
+    .state-empty {
+      text-align: center;
+      padding: 24px 8px;
+      color: rgba(255,255,255,0.5);
+    }
+    .state-empty .icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .on-playlist {}
+
+    .playlist-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 4px;
+    }
+    .playlist-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .backup-info {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+    .backup-badge {
+      background: rgba(29,185,84,0.2);
+      color: #1db954;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .backup-date, .backup-count {
+      font-size: 11px;
+      color: rgba(255,255,255,0.45);
+    }
+
+    .no-backup {
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 10px;
+    }
+
+    .btn-restore {
+      width: 100%;
+      padding: 9px 14px;
+      background: transparent;
+      border: 1.5px solid rgba(255,68,68,0.45);
+      border-radius: 8px;
+      color: #ff8080;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 14px;
+    }
+    .btn-restore:hover    { background: rgba(255,68,68,0.1); }
+    .btn-restore:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .divider {
+      height: 1px;
+      background: rgba(255,255,255,0.08);
+      margin: 12px 0;
+    }
+
+    .hint {
+      font-size: 11.5px;
+      color: rgba(255,255,255,0.38);
+      line-height: 1.6;
+    }
+    .hint strong { color: rgba(255,255,255,0.6); }
+
+    /* ── Footer ── */
+    .footer {
+      padding: 10px 16px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .footer a {
+      font-size: 11px;
+      color: rgba(255,255,255,0.3);
+      text-decoration: none;
+    }
+    .footer a:hover { color: rgba(255,255,255,0.6); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
+      </svg>
+    </div>
+    <div class="header-name">YT Music True Shuffle</div>
+    <div class="header-ver">v1.0.0</div>
+  </div>
+
+  <div id="app">
+    <div class="state-empty">
+      <div class="icon">⏳</div>
+      <p>Loading…</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="https://github.com/yourusername/yt-music-true-shuffle" target="_blank">GitHub</a>
+    <a href="#" id="clear-backups">Clear all backups</a>
+  </div>
+
+  <script src="dist/popup.js"></script>
+  <script>
+    document.getElementById('clear-backups')?.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!confirm('Delete all stored playlist backups?')) return;
+      const all = await chrome.storage.local.get(null);
+      const keys = Object.keys(all).filter(k => k.startsWith('ytms_backup_'));
+      if (keys.length) await chrome.storage.local.remove(keys);
+      location.reload();
+    });
+  </script>
+</body>
+</html>
