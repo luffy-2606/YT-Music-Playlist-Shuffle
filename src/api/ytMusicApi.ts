@@ -2,7 +2,6 @@
  * YouTube Music internal API (Innertube) client.
  *
  * Reverse-engineered from YouTube Music's own network traffic.
- * See RESEARCH.md for a detailed breakdown of how each endpoint works.
  *
  * Key endpoints used:
  *   POST /youtubei/v1/browse                 — fetch playlist tracks (+ pagination)
@@ -23,22 +22,18 @@ import type {
 
 const BASE_URL = 'https://music.youtube.com/youtubei/v1';
 
-/**
- * Sentinel value YouTube Music uses internally for tracks whose setVideoId
- * could not be resolved at render time. If this leaks into our actions array
- * it causes an immediate HTTP 400 INVALID_ARGUMENT from edit_playlist.
- */
+// Sentinel value for no videoId
 const PLACEHOLDER_SET_VIDEO_ID = 'to_be_updated_by_client';
 
 /**
  * Fallback values used when ytcfg extraction fails.
- * The API key is the public WEB_REMIX key — it is NOT a secret.
+ * The API key is the public WEB_REMIX key (it is NOT a secret)
  */
 const FALLBACK = {
   API_KEY: 'AIzaSyC9XL3ZjWddXya6X74dJoCTL-KKTKVNF0A',
   CLIENT_VERSION: '1.20240101.01.00',
   CLIENT_NAME: 'WEB_REMIX',
-  CLIENT_ID: '67', // Numeric ID for WEB_REMIX
+  CLIENT_ID: '67', // :)
 } as const;
 
 const FALLBACK_CONTEXT: InnertubeContext = {
@@ -58,43 +53,24 @@ const FALLBACK_CONTEXT: InnertubeContext = {
   },
 };
 
-/** Minimum ms between individual API requests (≈5 req/sec). */
+// delay btwn requests
 const REQUEST_GAP_MS = 200;
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 export class YtMusicApiClient {
   private cfg: Partial<YtCfgData> = {};
   private lastRequestAt = 0;
 
-  // ─── Initialisation ─────────────────────────────────────────────────────
-
-  /**
-   * Initialise the API client by reading ytcfg from the page.
-   *
-   * WHY THIS MATTERS FOR WRITE OPERATIONS:
-   *   YouTube Music allows unauthenticated or partially-authenticated reads
-   *   (browse, continuation) but requires a valid `visitorData` for mutations
-   *   (edit_playlist). Without it, every edit_playlist call returns HTTP 400
-   *   INVALID_ARGUMENT regardless of how correct the action payload is.
-   *
-   * Strategy (fastest-first, no unnecessary injection):
-   *   1. Parse ytcfg.set({...}) calls directly from DOM <script> tags — instant,
-   *      no injection, works on content scripts because they can read DOM text.
-   *   2. If that yields nothing, fall back to the postMessage injection approach.
-   *   3. If that also times out, use hardcoded fallback values (read-only ops only).
-   */
+  // Initialisation 
   async initialize(): Promise<void> {
-    // ── Strategy 1: Read ytcfg from script tags in the DOM ────────────────
+    // Strategy 1: Read ytcfg from script tags in the DOM
     let extracted = this.tryReadYtCfgFromDom();
 
-    // ── Strategy 2: postMessage injection (if DOM read didn't find the key) ─
+    // Strategy 2: postMessage injection (if DOM read didn't find the key)
     if (!extracted.INNERTUBE_API_KEY && !extracted.VISITOR_DATA) {
-      logger.debug('DOM ytcfg read found nothing — trying script injection');
       try {
         extracted = await this.extractYtCfg();
       } catch (err) {
-        logger.warn('Script injection approach also failed', err);
+        logger.warn('Script injection approach failed', err);
       }
     }
 
@@ -110,31 +86,12 @@ export class YtMusicApiClient {
       VISITOR_DATA: extracted.VISITOR_DATA,
     } as YtCfgData;
 
-    logger.info('API client initialised', {
-      source: extracted.INNERTUBE_API_KEY ? 'ytcfg' : 'fallback',
-      hasVisitorData: !!this.cfg.VISITOR_DATA,
-      clientVersion: this.cfg.INNERTUBE_CLIENT_VERSION,
-    });
-
     if (!this.cfg.VISITOR_DATA) {
-      // This is the root cause of HTTP 400 on edit_playlist. Warn loudly.
-      logger.warn(
-        'visitorData not found in ytcfg — edit_playlist calls WILL return 400. ' +
-          'Check that ytcfg-bootstrap.js is listed in web_accessible_resources ' +
-          'and that the content script runs after DOMContentLoaded.'
-      );
+      logger.warn('visitorData not found in ytcfg -> edit_playlist calls WILL return 400. ');
     }
   }
 
-  /**
-   * Parse ytcfg.set({...}) calls directly from <script> tags in the DOM.
-   *
-   * Content scripts run in an isolated JS world and cannot read window.ytcfg,
-   * but they CAN read DOM node text content — so we parse the raw script text.
-   *
-   * Uses a bracket-depth counter rather than a regex so nested objects are
-   * handled correctly regardless of whitespace or line breaks.
-   */
+  /* Parse ytcfg.set({...}) calls directly from <script> tags in the DOM. */
   private tryReadYtCfgFromDom(): Partial<YtCfgData> {
     try {
       const scripts = Array.from(
@@ -176,21 +133,13 @@ export class YtMusicApiClient {
               const data = JSON.parse(text.slice(braceStart, braceEnd + 1));
               Object.assign(merged, data);
             } catch {
-              // Malformed JSON in this ytcfg call — skip it
+              // Malformed JSON in this ytcfg call (skip)
             }
           }
 
           searchFrom =
             braceEnd !== -1 ? braceEnd + 1 : callStart + 10;
         }
-      }
-
-      if (merged.INNERTUBE_API_KEY || merged.VISITOR_DATA) {
-        logger.debug('ytcfg read from DOM script tags', {
-          hasApiKey: !!merged.INNERTUBE_API_KEY,
-          hasVisitorData: !!merged.VISITOR_DATA,
-          clientVersion: merged.INNERTUBE_CLIENT_VERSION,
-        });
       }
 
       return merged as Partial<YtCfgData>;
@@ -232,14 +181,12 @@ export class YtMusicApiClient {
     });
   }
 
-  // ─── Auth / Headers ─────────────────────────────────────────────────────
+  // Auth / Headers
 
   private async buildHeaders(): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Origin': 'https://music.youtube.com',
-      // Referer must reflect the actual playlist page, not a static origin.
-      // YouTube Music validates this on write operations.
       'Referer': window.location.href,
       'X-Goog-AuthUser': '0',
       'X-Youtube-Client-Name': FALLBACK.CLIENT_ID,
@@ -262,16 +209,13 @@ export class YtMusicApiClient {
         logger.warn('Failed to compute SAPISIDHASH, request may fail', err);
       }
     } else {
-      logger.warn('No SAPISID cookie — is the user signed in?');
+      logger.warn('No SAPISID cookie, is the user signed in?');
     }
 
     return headers;
   }
 
-  /**
-   * Build the Innertube context object for this request.
-   * Always uses the real current page URL so YouTube Music can validate origin.
-   */
+  /* Build the Innertube context object for this request */
   private buildContext(): InnertubeContext {
     const base: InnertubeContext =
       (this.cfg as any).INNERTUBE_CONTEXT ?? FALLBACK_CONTEXT;
@@ -280,9 +224,7 @@ export class YtMusicApiClient {
       ...base,
       client: {
         ...base.client,
-        // Use the actual page URL — YouTube validates this for mutations.
         originalUrl: window.location.href,
-        // Include visitorData in the context body if we have it.
         ...(this.cfg.VISITOR_DATA
           ? { visitorData: this.cfg.VISITOR_DATA }
           : {}),
@@ -290,14 +232,10 @@ export class YtMusicApiClient {
     };
   }
 
-  // ─── Core request ────────────────────────────────────────────────────────
+  // Core request
 
   /**
    * POST to an Innertube endpoint with automatic retry on transient errors.
-   *
-   * NOTE: retry() is called here and ONLY here. Callers (editPlaylist,
-   * browsePlaylist, etc.) must NOT wrap their calls in an additional retry —
-   * doing so creates nested retry loops (3×3 = 9 requests per failure).
    */
   private async post<T>(
     endpoint: string,
@@ -313,26 +251,14 @@ export class YtMusicApiClient {
 
       const headers = await this.buildHeaders();
 
-      // Use buildContext() so originalUrl and visitorData are always current.
       const payload = {
         context: this.buildContext(),
         ...body,
       };
 
-      logger.debug(`POST /${endpoint}`, {
-        bodyKeys: Object.keys(payload).join(', '),
-      });
-
-      // For edit_playlist, log the first action so we can confirm the shape
-      // without flooding the console with all N actions.
-      if (endpoint.includes('edit_playlist')) {
-        const actions = (payload as any).actions as unknown[] | undefined;
-        logger.info(`[editPlaylist] playlistId=${(payload as any).playlistId}, actions=${actions?.length}, first=`, actions?.[0]);
-      }
-
       const res = await fetch(url, {
         method: 'POST',
-        credentials: 'include', // sends all youtube.com cookies automatically
+        credentials: 'include', 
         headers,
         body: JSON.stringify(payload),
       });
@@ -355,15 +281,13 @@ export class YtMusicApiClient {
     }, 3, 1500);
   }
 
-  // ─── Public API methods ──────────────────────────────────────────────────
+  // Public API methods
 
   /** Fetch the first page of a playlist. browseId = "VL" + playlistId */
   async browsePlaylist(playlistId: string): Promise<BrowseResponse> {
     const browseId = playlistId.startsWith('VL')
       ? playlistId
       : `VL${playlistId}`;
-
-    logger.info(`Browsing playlist: ${browseId}`);
 
     return this.post<BrowseResponse>('browse', { browseId });
   }
@@ -378,33 +302,22 @@ export class YtMusicApiClient {
   /**
    * Edit a playlist (reorder, remove, add tracks).
    *
-   * @param playlistId - Raw playlist ID (e.g. "PLxxx"), WITHOUT the "VL" prefix.
-   * @param actions    - Array of edit actions (batched for efficiency).
-   *
-   * IMPORTANT: Do NOT wrap calls to this method in retry(). The underlying
-   * post() already retries up to 3 times. A double-wrapped retry produces
-   * up to 9 network requests per failed batch, causing confusing log output
-   * and thrashing the rate limit.
+   * @param playlistId 
+   * @param actions 
    */
   async editPlaylist(
     playlistId: string,
     actions: PlaylistEditAction[]
   ): Promise<EditPlaylistResponse> {
-    logger.debug(
-      `editPlaylist(${playlistId}) — ${actions.length} action(s)`
-    );
     return this.post<EditPlaylistResponse>('browse/edit_playlist', {
       playlistId,
       actions,
     });
   }
 
-  // ─── Response parsing ────────────────────────────────────────────────────
+  // Response parsing
 
-  /**
-   * Extract PlaylistTrack array and next continuation token from a raw
-   * browse (or continuation) API response.
-   */
+  /* Extract PlaylistTrack array and next continuation token from a raw browse API response. */
   extractTracks(
     response: BrowseResponse,
     startIndex: number = 0
@@ -412,10 +325,7 @@ export class YtMusicApiClient {
     const tracks: PlaylistTrack[] = [];
     let continuation: string | null = null;
 
-    // ─────────────────────────────────────────────
     // 1. COLLECT ALL POSSIBLE ITEM CONTAINERS
-    // ─────────────────────────────────────────────
-
     const candidates: unknown[] = [];
 
     const pushIfExists = (obj: any) => {
@@ -431,10 +341,7 @@ export class YtMusicApiClient {
     pushIfExists(response?.contents);
     pushIfExists(response);
 
-    // ─────────────────────────────────────────────
     // 2. FIND ALL RENDERERS RECURSIVELY
-    // ─────────────────────────────────────────────
-
     const items: Record<string, unknown>[] = [];
 
     const findResponsiveItems = (obj: any) => {
@@ -483,19 +390,13 @@ export class YtMusicApiClient {
     findResponsiveItems(response);
     for (const c of candidates) walk(c);
 
-    // ─────────────────────────────────────────────
     // 3. PARSE TRACKS
-    // ─────────────────────────────────────────────
-
     for (let i = 0; i < items.length; i++) {
       const track = this.parseTrackItem(items[i], startIndex + i);
       if (track) tracks.push(track);
     }
 
-    // ─────────────────────────────────────────────
-    // 4. CONTINUATION TOKEN (ROBUST)
-    // ─────────────────────────────────────────────
-
+    // 4. CONTINUATION TOKEN
     const findContinuation = (obj: any): string | null => {
       if (!obj || typeof obj !== 'object') return null;
 
@@ -522,33 +423,8 @@ export class YtMusicApiClient {
       findContinuation(response) ||
       null;
 
-    // ─────────────────────────────────────────────
-    // 5. DEBUG LOGGING
-    // ─────────────────────────────────────────────
-
-    logger.debug(
-      `[extractTracks] found ${tracks.length} tracks, continuation=${!!continuation}`
-    );
-
-    if (tracks.length === 0) {
-      logger.warn(
-        '[extractTracks] ZERO TRACKS FOUND — dumping response shape keys:',
-        Object.keys(response || {})
-      );
-      // FIX: Also log the continuationContents shape so we can diagnose
-      // the page-3 zero-track issue. The top-level keys alone aren't enough.
-      if (response?.continuationContents) {
-        logger.warn(
-          '[extractTracks] continuationContents keys:',
-          Object.keys(response.continuationContents)
-        );
-      }
-    }
-
     return { tracks, continuation };
   }
-
-  // ─── Private helpers ─────────────────────────────────────────────────────
 
   private parseTrackItem(
     renderer: Record<string, unknown> | undefined | null,
@@ -611,19 +487,8 @@ export class YtMusicApiClient {
       }
     }
 
-    // ── FIX: Reject the YouTube-internal placeholder value.
-    //
-    // When YouTube Music hasn't resolved the setVideoId for a track yet (e.g.
-    // unavailable videos, podcast episodes, locally-uploaded tracks), it emits
-    // the literal string "to_be_updated_by_client" as a sentinel. Sending this
-    // value to edit_playlist causes an immediate HTTP 400 INVALID_ARGUMENT for
-    // the ENTIRE batch — not just the one bad track. We must drop these tracks
-    // at parse time so they never reach the actions array.
     if (setVideoId === PLACEHOLDER_SET_VIDEO_ID) {
-      logger.warn(
-        `Track at index ${index} has placeholder setVideoId — skipping (videoId=${videoId}). ` +
-        'This usually means the track is unavailable, a podcast episode, or a local upload.'
-      );
+      logger.warn(`Track at index ${index} has placeholder setVideoId — skipping (videoId=${videoId}).`);
       return null;
     }
 
@@ -672,5 +537,4 @@ export class YtMusicApiClient {
   }
 }
 
-// Singleton used throughout the extension
 export const apiClient = new YtMusicApiClient();

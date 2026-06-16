@@ -1,30 +1,24 @@
 /**
- * PlaylistCollector — fetches all tracks in a playlist via the browse API.
+ * PlaylistCollector — orchestrates full playlist track collection.
  *
- * YouTube Music lazy-loads playlists using continuation tokens. This module
- * follows every continuation page until all tracks are collected.
+ * PRIMARY STRATEGY: DOM-based collection via DomCollector.
+ *   Scrolls the page to render all tracks, then reads el.data from each
+ *   ytmusic-responsive-list-item-renderer.
+ *
+ * FALLBACK: API browse (first page only, ~100 tracks).
+ *   Used when the DOM approach returns 0 results (e.g., unexpected page
+ *   structure). This is a known-limited fallback .
  */
 
 import { logger } from '../utils/logger';
-import { sleep } from '../utils/dom';
 import { apiClient } from '../api/ytMusicApi';
+import { domCollector } from './domCollector';
 import type { PlaylistTrack } from '../api/types';
-
-/** Hard cap to prevent infinite loops on pathological playlists. */
-const MAX_TRACKS = 5_000;
-
-/** Delay between continuation requests to avoid rate-limiting. */
-const CONTINUATION_DELAY_MS = 350;
-
-/** Max time to spend collecting a single playlist (5 minutes). */
-const MAX_COLLECTION_TIME_MS = 5 * 60 * 1000;
 
 export type CollectorProgressFn = (params: {
   collected: number;
-  page: number;
+  phase: 'scrolling' | 'extracting' | 'api-fallback';
 }) => void;
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 export class PlaylistCollector {
   private onProgress: CollectorProgressFn | null = null;
@@ -34,92 +28,76 @@ export class PlaylistCollector {
   }
 
   /**
-   * Collect every track in `playlistId`.
+   * Collect every track in the playlist currently rendered on the page.
    *
-   * @param playlistId - Raw playlist ID (e.g. "PLxxx"). The "VL" prefix is
-   *                     added internally for the browse API.
-   * @param signal     - Optional AbortSignal for cancellation.
+   * @param playlistId - Raw playlist ID.
+   * @param signal     - AbortSignal for cancellation.
    */
   async collectAll(
     playlistId: string,
     signal?: AbortSignal
   ): Promise<PlaylistTrack[]> {
-    const startTime = Date.now();
     logger.time('collectAll');
-    logger.info(`Starting collection for playlist: ${playlistId}`);
+    logger.info(`[Collector] Starting collection for playlist: ${playlistId}`);
 
-    const allTracks: PlaylistTrack[] = [];
-    let continuation: string | null = null;
-    let page = 1;
+    // --- DOM-based collection ---
+    try {
+      domCollector.setProgressCallback(loaded => {
+        this.onProgress?.({ collected: loaded, phase: 'scrolling' });
+      });
 
-    // ── First page ──────────────────────────────────────────────────────
-    this.checkAbort(signal);
-    const firstResponse = await apiClient.browsePlaylist(`VL${playlistId}`);
-    const first = apiClient.extractTracks(firstResponse, 0);
+      const tracks = await domCollector.collectAll(signal);
 
-    allTracks.push(...first.tracks);
-    continuation = first.continuation;
-
-    logger.info(`Page 1: ${first.tracks.length} tracks, continuation=${!!continuation}`);
-    this.onProgress?.({ collected: allTracks.length, page });
-
-    // ── Continuation pages ───────────────────────────────────────────────
-    while (continuation && allTracks.length < MAX_TRACKS) {
-      this.checkAbort(signal);
-
-      const elapsed = Date.now() - startTime;
-      if (elapsed > MAX_COLLECTION_TIME_MS) {
-        logger.warn(`Collection timed out after ${Math.round(elapsed / 1000)}s`);
-        break;
+      if (tracks.length > 0) {
+        logger.timeEnd('collectAll');
+        logger.info(`[Collector] DOM collection succeeded: ${tracks.length} tracks`);
+        return tracks;
       }
 
-      await sleep(CONTINUATION_DELAY_MS);
-      this.checkAbort(signal);
-
-      page++;
-      logger.debug(`Fetching page ${page}…`);
-
-      const resp = await apiClient.browsePlaylistContinuation(continuation);
-      const parsed = apiClient.extractTracks(resp, allTracks.length);
-
-      if (parsed.tracks.length === 0) {
-        // Empty page = we're done (server may still return a continuation token)
-        logger.warn(`Page ${page} returned 0 tracks — stopping early`);
-        break;
-      }
-
-      allTracks.push(...parsed.tracks);
-      continuation = parsed.continuation;
-
-      logger.debug(
-        `Page ${page}: ${parsed.tracks.length} new, ${allTracks.length} total`
+      // DOM returned nothing
+      logger.warn(
+        '[Collector] DOM collection returned 0 tracks. ' +
+        'Falling back to API browse.'
       );
-      this.onProgress?.({ collected: allTracks.length, page });
+
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') throw err;
+      logger.error('[Collector] DOM collection threw unexpectedly — falling back to API', err);
     }
 
-    if (allTracks.length >= MAX_TRACKS) {
-      logger.warn(`Hit MAX_TRACKS cap (${MAX_TRACKS})`);
-    }
-
-    logger.timeEnd('collectAll');
-
-    // Filter out any items without a valid setVideoId (they cannot be reordered)
-    const valid = allTracks.filter(t => t.videoId && t.setVideoId);
-    const dropped = allTracks.length - valid.length;
-    if (dropped > 0) {
-      logger.warn(`Dropped ${dropped} tracks without valid IDs`);
-    }
-
-    logger.info(
-      `Collection complete: ${valid.length} valid tracks across ${page} page(s)`
-    );
-
-    return valid;
+    // FALLBACK: API browse
+    return this.collectViaApiFallback(playlistId, signal);
   }
 
-  private checkAbort(signal?: AbortSignal): void {
-    if (signal?.aborted) {
-      throw new DOMException('Collection cancelled by user', 'AbortError');
+  private async collectViaApiFallback(
+    playlistId: string,
+    signal?: AbortSignal
+  ): Promise<PlaylistTrack[]> {
+    logger.warn('[Collector] API fallback active | only the first ~100 tracks will be shuffled.');
+
+    if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
+
+    this.onProgress?.({ collected: 0, phase: 'api-fallback' });
+
+    try {
+      const response = await apiClient.browsePlaylist(`VL${playlistId}`);
+      const { tracks } = apiClient.extractTracks(response, 0);
+
+      const valid = tracks.filter(
+        t => t.videoId && t.setVideoId && t.setVideoId !== 'to_be_updated_by_client'
+      );
+
+      this.onProgress?.({ collected: valid.length, phase: 'api-fallback' });
+      logger.info(`[Collector] API fallback: ${valid.length} valid tracks from first page`);
+
+      return valid;
+
+    } catch (err) {
+      logger.error('[Collector] API fallback also failed', err);
+      throw new Error(
+        'Could not collect playlist tracks via either DOM or API. ' +
+        'Make sure the playlist page has fully loaded and try again.'
+      );
     }
   }
 }

@@ -1,13 +1,5 @@
 /**
- * ProgressModal — blocking modal that shows live shuffle progress.
- *
- * Lifecycle:
- *   const modal = new ProgressModal();
- *   modal.show('True Shuffle');
- *   modal.update({ status: '…', progress: 42 });
- *   modal.showSuccess('Done!', true);   // or
- *   modal.showError('Something broke'); // or
- *   modal.hide();
+ * ProgressModal: blocking modal that shows live shuffle progress.
  */
 
 const ICONS = {
@@ -19,7 +11,6 @@ const ICONS = {
 
 export interface ModalUpdateOptions {
   status?: string;
-  /** 0–100, or undefined for indeterminate */
   progress?: number;
   progressLabel?: string;
   canClose?: boolean;
@@ -38,8 +29,7 @@ export class ProgressModal {
     return this.abortController.signal;
   }
 
-  // ─── Lifecycle ───────────────────────────────────────────────────────────
-
+  // Lifecycle
   show(title: string): void {
     this.overlay?.remove();
     this._cancelled = false;
@@ -166,7 +156,7 @@ export class ProgressModal {
     }, 160);
   }
 
-  // ─── Static helpers ──────────────────────────────────────────────────────
+  // Static helpers
 
   static toast(
     message: string,
@@ -185,8 +175,6 @@ export class ProgressModal {
       setTimeout(() => toast.remove(), 270);
     }, durationMs);
   }
-
-  // ─── Private helpers ─────────────────────────────────────────────────────
 
   private handleCancel(): void {
     if (this._cancelled) return;

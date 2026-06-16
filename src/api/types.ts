@@ -2,12 +2,8 @@
  * Type definitions for YouTube Music's internal Innertube API.
  *
  * These types are reverse-engineered from YT Music's network traffic.
- * The API is undocumented and may change — see RESEARCH.md for details.
+ * see RESEARCH.md for details.
  */
-
-// ─────────────────────────────────────────────
-// Configuration extracted from window.ytcfg
-// ─────────────────────────────────────────────
 
 export interface YtCfgData {
   INNERTUBE_API_KEY: string;
@@ -51,23 +47,13 @@ export interface RequestContext {
   internalExperimentFlags?: unknown[];
 }
 
-// ─────────────────────────────────────────────
 // Domain model
-// ─────────────────────────────────────────────
-
 export interface PlaylistTrack {
-  /** YouTube video ID (e.g. "dQw4w9WgXcQ") */
   videoId: string;
-  /**
-   * The unique ID for this specific occurrence in the playlist.
-   * This is NOT the videoId — it identifies the slot, allowing
-   * duplicates. Required for all playlist edit operations.
-   */
   setVideoId: string;
   title: string;
   artist: string;
   duration: string;
-  /** 0-based index at time of collection */
   index: number;
 }
 
@@ -78,10 +64,7 @@ export interface PlaylistData {
   totalTrackCount?: number;
 }
 
-// ─────────────────────────────────────────────
 // Playlist edit actions
-// ─────────────────────────────────────────────
-
 export type PlaylistEditActionType =
   | 'ACTION_MOVE_VIDEO_BEFORE'
   | 'ACTION_REMOVE_VIDEO'
@@ -89,12 +72,7 @@ export type PlaylistEditActionType =
 
 export interface MoveVideoAction {
   action: 'ACTION_MOVE_VIDEO_BEFORE';
-  /** The setVideoId of the track to move */
   setVideoId: string;
-  /**
-   * The setVideoId of the track that should immediately follow
-   * the moved track in the new order.
-   */
   movedSetVideoIdSuccessor: string;
 }
 
@@ -115,17 +93,14 @@ export type PlaylistEditAction =
   | AddVideoAction;
 
 export interface EditPlaylistResponse {
-  status: string; // "STATUS_SUCCEEDED" on success
+  status: string;
   playlistEditResults?: Array<{
     status: string;
     playlistId: string;
   }>;
 }
 
-// ─────────────────────────────────────────────
 // Browse API response types
-// ─────────────────────────────────────────────
-
 export interface BrowseResponse {
   header?: PlaylistHeader;
   contents?: BrowseContents;
@@ -185,17 +160,13 @@ export interface MusicShelfItem {
   musicResponsiveListItemRenderer?: MusicResponsiveListItemRenderer;
 }
 
-// ─────────────────────────────────────────────
 // Track item renderer
-// ─────────────────────────────────────────────
-
 export interface MusicResponsiveListItemRenderer {
   trackingParams?: string;
   thumbnail?: ThumbnailObject;
   overlay?: ItemOverlay;
   flexColumns?: FlexColumn[];
   menu?: TopLevelMenu;
-  /** Primary source of videoId + setVideoId */
   playlistItemData?: PlaylistItemData;
   index?: { runs?: Array<{ text: string }> };
   fixedColumns?: FlexColumn[];
@@ -260,9 +231,7 @@ export interface MenuItem {
   };
 }
 
-// ─────────────────────────────────────────────
 // Pagination
-// ─────────────────────────────────────────────
 
 export interface Continuation {
   nextContinuationData?: {
@@ -275,9 +244,8 @@ export interface Continuation {
   };
 }
 
-// ─────────────────────────────────────────────
+
 // Shared primitives
-// ─────────────────────────────────────────────
 
 export interface TextObject {
   runs?: Array<{ text: string; bold?: boolean }>;

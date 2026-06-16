@@ -1,11 +1,9 @@
 /**
- * BackupManager — persists the original playlist order before shuffling.
+ * BackupManager: persists the original playlist order before shuffling.
  *
  * Storage layout (chrome.storage.local):
  *   Key:   "ytms_backup_<playlistId>"
- *   Value: PlaylistBackup (see type below)
- *
- * Backups older than MAX_AGE_MS are considered expired and are ignored.
+ *   Value: PlaylistBackup
  */
 
 import { logger } from '../utils/logger';
@@ -17,12 +15,10 @@ const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 export interface PlaylistBackup {
   playlistId: string;
   playlistTitle: string;
-  savedAt: string; // ISO-8601
+  savedAt: string;
   trackCount: number;
   tracks: PlaylistTrack[];
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 export class BackupManager {
   private key(playlistId: string): string {
@@ -45,15 +41,10 @@ export class BackupManager {
 
     await chrome.storage.local.set({ [this.key(playlistId)]: backup });
 
-    logger.info(
-      `Backup saved: "${playlistTitle}" (${tracks.length} tracks) → ${this.key(playlistId)}`
-    );
+    logger.info(`Backup saved: "${playlistTitle}" (${tracks.length} tracks) → ${this.key(playlistId)}`);
   }
 
-  /**
-   * Load the backup for `playlistId`.
-   * Returns `null` if no backup exists or it has expired.
-   */
+  /* Load the backup for `playlistId`. */
   async load(playlistId: string): Promise<PlaylistBackup | null> {
     const result = await chrome.storage.local.get(this.key(playlistId));
     const backup = result[this.key(playlistId)] as PlaylistBackup | undefined;
@@ -65,17 +56,13 @@ export class BackupManager {
 
     const ageMs = Date.now() - new Date(backup.savedAt).getTime();
     if (ageMs > MAX_AGE_MS) {
-      logger.warn(
-        `Backup for ${playlistId} is ${Math.floor(ageMs / 86_400_000)} days old — ignoring`
-      );
-      // Silently remove expired backup
+      logger.warn(`Backup for ${playlistId} is ${Math.floor(ageMs / 86_400_000)} days old -> ignoring`);
+      // remove expired backup
       await this.delete(playlistId);
       return null;
     }
 
-    logger.info(
-      `Backup loaded: "${backup.playlistTitle}" (${backup.trackCount} tracks, saved ${backup.savedAt})`
-    );
+    logger.info(`Backup loaded: "${backup.playlistTitle}" (${backup.trackCount} tracks, saved ${backup.savedAt})`);
     return backup;
   }
 

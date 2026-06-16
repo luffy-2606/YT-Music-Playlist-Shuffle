@@ -1,6 +1,5 @@
 /**
  * Centralized logger for the extension.
- * All messages are prefixed so they're easy to spot in DevTools.
  */
 
 export enum LogLevel {
