@@ -25,11 +25,21 @@
       border-bottom: 1px solid rgba(255,255,255,0.08);
     }
     .header-icon {
-      width: 26px; height: 26px;
-      background: linear-gradient(135deg, #f03 0%, #aa0022 100%);
-      border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
+      width: 24px; 
+      height: 24px;
+      display: flex; 
+      align-items: center; 
+      justify-content: center;
       flex-shrink: 0;
+      box-sizing: border-box; 
+      background: transparent; 
+    }
+
+    .header-icon img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
     .header-icon svg { width: 14px; height: 14px; fill: #fff; }
     .header-name { font-size: 13px; font-weight: 700; color: #fff; }
@@ -115,12 +125,10 @@
 <body>
   <div class="header">
     <div class="header-icon">
-      <svg viewBox="0 0 24 24">
-        <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
-      </svg>
+      <img src="icons/icon128.png" alt="True Shuffle Logo" />
     </div>
     <span class="header-name">YT Music True Shuffle</span>
-    <span class="header-ver">v1.0</span>
+    <span class="header-ver">v1.19</span>
   </div>
 
   <div id="app">
