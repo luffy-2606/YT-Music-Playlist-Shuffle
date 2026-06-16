@@ -3,8 +3,8 @@
  * Scoped under .ytms-* to avoid collisions with YouTube Music's own CSS.
  * Injected once into <head> via a <style> tag.
  */
-export const EXTENSION_STYLES = /* css */ `
-/* ── Button ──────────────────────────────────────────────────────────────── */
+export const EXTENSION_STYLES = `
+/* ----- Button ----- */
 
 .ytms-btn-wrap {
   display: inline-flex;
@@ -71,7 +71,7 @@ export const EXTENSION_STYLES = /* css */ `
   to { transform: rotate(360deg); }
 }
 
-/* ── Modal overlay ────────────────────────────────────────────────────────── */
+/* ----- Modal overlay ----- */
 
 .ytms-overlay {
   position: fixed;
@@ -106,7 +106,7 @@ export const EXTENSION_STYLES = /* css */ `
   to   { transform: translateY(0);    opacity: 1; }
 }
 
-/* ── Modal header ─────────────────────────────────────────────────────────── */
+/* ----- Modal header ----- */
 
 .ytms-modal-head {
   display: flex;
@@ -144,7 +144,7 @@ export const EXTENSION_STYLES = /* css */ `
   margin-top: 2px;
 }
 
-/* ── Progress area ────────────────────────────────────────────────────────── */
+/* ----- Progress area ----- */
 
 .ytms-status {
   font-size: 14px;
@@ -187,7 +187,7 @@ export const EXTENSION_STYLES = /* css */ `
   min-height: 15px;
 }
 
-/* ── Modal footer ─────────────────────────────────────────────────────────── */
+/* ----- Modal footer ----- */
 
 .ytms-modal-foot {
   display: flex;
@@ -239,7 +239,7 @@ export const EXTENSION_STYLES = /* css */ `
 }
 .ytms-btn-danger-ghost:hover { background: rgba(255,68,68,0.1); }
 
-/* ── Result screens ───────────────────────────────────────────────────────── */
+/* ----- Result screens ----- */
 
 .ytms-result {
   text-align: center;
@@ -284,7 +284,7 @@ export const EXTENSION_STYLES = /* css */ `
   white-space: pre-wrap;
 }
 
-/* ── Toast notification ───────────────────────────────────────────────────── */
+/* ----- Toast notification ----- */
 
 .ytms-toast {
   position: fixed;

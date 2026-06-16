@@ -1,7 +1,6 @@
 /**
  * Extension popup script.
  * Reads backup info from chrome.storage.local and shows it to the user.
- * Can also initiate a restore by messaging the active tab's content script.
  */
 
 import type { PlaylistBackup } from '../storage/backup';

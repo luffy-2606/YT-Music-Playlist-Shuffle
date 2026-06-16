@@ -3,13 +3,9 @@
  *
  * YouTube (and YouTube Music) uses SAPISIDHASH for authenticated API calls.
  * Format: SAPISIDHASH <timestamp>_<SHA1(timestamp + " " + SAPISID + " " + origin)>
- *
- * Reference: https://stackoverflow.com/questions/64983087 (public documentation)
  */
 
-/**
- * Compute a SHA-1 hex digest of a UTF-8 string using the Web Crypto API.
- */
+/* Compute a SHA-1 hex digest of a UTF-8 string */
 export async function sha1Hex(message: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(message);
@@ -21,8 +17,8 @@ export async function sha1Hex(message: string): Promise<string> {
 /**
  * Generate a SAPISIDHASH Authorization header value.
  *
- * @param sapisid  - Value of the SAPISID cookie
- * @param origin   - The page origin (https://music.youtube.com)
+ * @param sapisid  - SAPISID cookie
+ * @param origin   - The page origin
  */
 export async function generateSAPIHASH(
   sapisid: string,

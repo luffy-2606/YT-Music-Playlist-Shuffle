@@ -1,62 +1,24 @@
 /**
- * PlaylistShuffler — applies a new track order to a YouTube Music playlist.
+ * PlaylistShuffler
+ * We use ACTION_MOVE_VIDEO_BEFORE
  *
- * ─── Algorithm ──────────────────────────────────────────────────────────────
- *
- * Goal: given a desired final order T[0..n-1], transform the playlist using
- * the minimum number of API calls (each call can carry multiple actions).
- *
- * We use ACTION_MOVE_VIDEO_BEFORE which means:
- *   "Move the item identified by setVideoId to be immediately before the item
- *    identified by movedSetVideoIdSuccessor."
- *
- * Strategy — right-to-left insertion:
+ * Strategy: right-to-left insertion:
  *   For i from (n-1) downto 1:
  *     Move T[i-1] immediately before T[i].
- *
- * Correctness proof sketch:
- *   After processing step i, the subsequence T[i-1..n-1] is correctly ordered.
- *   At step i, T[i] is already in its final relative position (processed earlier).
- *   Placing T[i-1] immediately before T[i] extends the ordered suffix by one.
- *   After step i=1, T[0..n-1] is fully ordered.
- *
- * Total moves: n-1
- * Batching: up to BATCH_SIZE moves per API request → ceil((n-1)/BATCH_SIZE) requests
- *
- * For 1000 tracks: 999 moves → 34 requests (at 30/batch) → ~17s with delays.
- *
- * WHY NOT REMOVE + RE-ADD?
- *   Removing all tracks before re-adding is dangerous:
- *     • If the add step fails (400/429/network), the playlist is empty.
- *     • ACTION_REMOVE_VIDEO is not a valid action name — YouTube Music's
- *       internal API requires ACTION_REMOVE_VIDEO_BY_SET_VIDEO_ID.
- *     • ACTION_ADD_VIDEO requires field `addedVideoId`, not `videoId`.
- *   Move operations are non-destructive: the playlist stays intact if
- *   any batch fails, and the user can retry or restore from backup.
- *
- * ────────────────────────────────────────────────────────────────────────────
  */
 
 import { logger } from '../utils/logger';
 import { sleep, chunk } from '../utils/dom';
-// NOTE: do NOT import retry here. apiClient.editPlaylist() already retries
-// internally via post(). Wrapping it in a second retry() causes 3×3 = 9
-// network requests per failed batch, which pollutes logs and hammers rate limits.
 import { apiClient } from '../api/ytMusicApi';
 import type { MoveVideoAction, PlaylistTrack } from '../api/types';
 
-/** Actions per API request. Stay well within YT Music's undocumented limit. */
+// Actions per API request
 const BATCH_SIZE = 30;
 
-/** Delay between batches (ms). Keep well below rate-limit thresholds. */
+// Delay between batches
 const BATCH_DELAY_MS = 600;
 
-/**
- * YouTube Music emits this sentinel when it hasn't resolved a track's
- * setVideoId (unavailable tracks, podcasts, local uploads). It is truthy,
- * so a simple `!t.setVideoId` check won't catch it. Must be explicitly
- * excluded — sending it to edit_playlist causes HTTP 400 for the whole batch.
- */
+// Sentinal value if no video id
 const PLACEHOLDER_SET_VIDEO_ID = 'to_be_updated_by_client';
 
 export type ShufflerProgressFn = (params: {
@@ -65,8 +27,6 @@ export type ShufflerProgressFn = (params: {
   batchIndex: number;
   totalBatches: number;
 }) => void;
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 export class PlaylistShuffler {
   private onProgress: ShufflerProgressFn | null = null;
@@ -129,8 +89,7 @@ export class PlaylistShuffler {
 
     const n = desiredOrder.length;
 
-    // Build the full move list (right-to-left insertion, n-1 moves total).
-    // Each move: "place T[i-1] immediately before T[i]"
+    // place T[i-1] immediately before T[i]
     const actions: MoveVideoAction[] = [];
     for (let i = n - 1; i >= 1; i--) {
       actions.push({
@@ -149,8 +108,6 @@ export class PlaylistShuffler {
     for (let bi = 0; bi < batches.length; bi++) {
       this.checkAbort(signal);
 
-      // editPlaylist → post() already retries up to 3× internally.
-      // Do NOT add another retry() here.
       await apiClient.editPlaylist(playlistId, batches[bi]);
 
       completedMoves += batches[bi].length;

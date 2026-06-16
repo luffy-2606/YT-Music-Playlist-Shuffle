@@ -6,12 +6,6 @@ export type NavigationCallback = (url: string, prevUrl: string) => void;
  * Detects client-side navigation in YouTube Music (SPA).
  *
  * YouTube Music uses the History API (pushState / replaceState) for routing.
- * The content script is NOT re-injected on navigation — we must detect it here.
- *
- * Strategy:
- *   1. Patch history.pushState and history.replaceState (most reliable)
- *   2. Listen for `popstate` (back/forward buttons)
- *   3. Poll as a safety net for edge cases (navigation that bypasses patched methods)
  */
 export class NavigationDetector {
   private callbacks: NavigationCallback[] = [];
@@ -51,8 +45,6 @@ export class NavigationDetector {
     }
     this.callbacks = [];
   }
-
-  // ─── Private ──────────────────────────────────────────
 
   private notify(newUrl: string): void {
     if (newUrl === this.lastUrl) return;

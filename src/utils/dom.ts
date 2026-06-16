@@ -1,9 +1,5 @@
 import { logger } from './logger';
 
-// ─────────────────────────────────────────────
-// Async helpers
-// ─────────────────────────────────────────────
-
 /** Pause execution for `ms` milliseconds. */
 export function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -43,14 +39,7 @@ export async function retry<T>(
   throw lastError;
 }
 
-// ─────────────────────────────────────────────
-// DOM helpers
-// ─────────────────────────────────────────────
-
-/**
- * Wait for a CSS-selector match inside `root`, up to `timeoutMs`.
- * Resolves immediately if the element already exists.
- */
+/* Wait for a CSS-selector match inside `root`, up to `timeoutMs`. */
 export function waitForElement(
   selector: string,
   timeoutMs: number = 10_000,
@@ -103,14 +92,7 @@ export async function waitForFirstElement(
   return null;
 }
 
-// ─────────────────────────────────────────────
-// Cookie helpers
-// ─────────────────────────────────────────────
-
-/**
- * Read a cookie value by name from document.cookie.
- * Returns `null` when not found or not accessible.
- */
+/* Read a cookie value by name from document.cookie. */
 export function getCookieValue(name: string): string | null {
   const prefix = `${name}=`;
   for (const part of document.cookie.split(';')) {
@@ -124,7 +106,7 @@ export function getCookieValue(name: string): string | null {
 
 /**
  * Return the first available auth cookie value.
- * YouTube Music uses SAPISID (and its Secure variant __Secure-3PAPISID).
+ * YouTube Music uses SAPISID.
  */
 export function getSapisid(): string | null {
   // Prefer the secure variant when available
@@ -135,14 +117,7 @@ export function getSapisid(): string | null {
   );
 }
 
-// ─────────────────────────────────────────────
-// URL / routing helpers
-// ─────────────────────────────────────────────
-
-/**
- * Returns true when the current page is a YouTube Music playlist page.
- * Does NOT activate on albums, artist pages, or watch pages.
- */
+/* Returns true when the current page is a YouTube Music playlist page. */
 export function isPlaylistPage(): boolean {
   return (
     window.location.hostname === 'music.youtube.com' &&
@@ -151,20 +126,13 @@ export function isPlaylistPage(): boolean {
   );
 }
 
-/**
- * Extract the playlist ID from the current URL.
- * Returns null if not on a playlist page.
- */
+/* Extract the playlist ID from the current URL. */
 export function getPlaylistIdFromUrl(): string | null {
   if (!isPlaylistPage()) return null;
   return new URLSearchParams(window.location.search).get('list');
 }
 
-// ─────────────────────────────────────────────
-// Safe JSON
-// ─────────────────────────────────────────────
-
-/** JSON.parse that returns null on failure instead of throwing. */
+/* JSON.parse that returns null on failure instead of throwing. */
 export function safeJsonParse<T = unknown>(text: string): T | null {
   try {
     return JSON.parse(text) as T;
@@ -172,10 +140,6 @@ export function safeJsonParse<T = unknown>(text: string): T | null {
     return null;
   }
 }
-
-// ─────────────────────────────────────────────
-// Chunking
-// ─────────────────────────────────────────────
 
 /** Split an array into chunks of at most `size` elements. */
 export function chunk<T>(array: T[], size: number): T[][] {

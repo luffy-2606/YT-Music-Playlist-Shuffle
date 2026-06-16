@@ -3,13 +3,11 @@
  *
  * PRIMARY STRATEGY: DOM-based collection via DomCollector.
  *   Scrolls the page to render all tracks, then reads el.data from each
- *   ytmusic-responsive-list-item-renderer (which contains the resolved
- *   setVideoId that the API never returns for tracks 101+).
+ *   ytmusic-responsive-list-item-renderer.
  *
  * FALLBACK: API browse (first page only, ~100 tracks).
  *   Used when the DOM approach returns 0 results (e.g., unexpected page
- *   structure). This is a known-limited fallback — it will only shuffle
- *   the first ~100 tracks.
+ *   structure). This is a known-limited fallback .
  */
 
 import { logger } from '../utils/logger';
@@ -22,8 +20,6 @@ export type CollectorProgressFn = (params: {
   phase: 'scrolling' | 'extracting' | 'api-fallback';
 }) => void;
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 export class PlaylistCollector {
   private onProgress: CollectorProgressFn | null = null;
 
@@ -34,9 +30,7 @@ export class PlaylistCollector {
   /**
    * Collect every track in the playlist currently rendered on the page.
    *
-   * @param playlistId - Raw playlist ID (no "VL" prefix). Used only by the
-   *                     API fallback; the DOM approach reads whatever is
-   *                     currently displayed in the browser.
+   * @param playlistId - Raw playlist ID.
    * @param signal     - AbortSignal for cancellation.
    */
   async collectAll(
@@ -46,7 +40,7 @@ export class PlaylistCollector {
     logger.time('collectAll');
     logger.info(`[Collector] Starting collection for playlist: ${playlistId}`);
 
-    // ── PRIMARY: DOM-based collection ─────────────────────────────────────
+    // --- DOM-based collection ---
     try {
       domCollector.setProgressCallback(loaded => {
         this.onProgress?.({ collected: loaded, phase: 'scrolling' });
@@ -60,32 +54,26 @@ export class PlaylistCollector {
         return tracks;
       }
 
-      // DOM returned nothing — log clearly and fall through to API fallback.
+      // DOM returned nothing
       logger.warn(
         '[Collector] DOM collection returned 0 tracks. ' +
-        'This usually means YTM rendered the page in an unexpected structure. ' +
-        'Falling back to API browse (first ~100 tracks only).'
+        'Falling back to API browse.'
       );
 
     } catch (err) {
-      // Re-throw cancellations; swallow everything else and try the fallback.
       if (err instanceof DOMException && err.name === 'AbortError') throw err;
       logger.error('[Collector] DOM collection threw unexpectedly — falling back to API', err);
     }
 
-    // ── FALLBACK: API browse (first page only) ────────────────────────────
+    // FALLBACK: API browse
     return this.collectViaApiFallback(playlistId, signal);
   }
-
-  // ─── Private ─────────────────────────────────────────────────────────────
 
   private async collectViaApiFallback(
     playlistId: string,
     signal?: AbortSignal
   ): Promise<PlaylistTrack[]> {
-    logger.warn(
-      '[Collector] API fallback active — only the first ~100 tracks will be shuffled.'
-    );
+    logger.warn('[Collector] API fallback active | only the first ~100 tracks will be shuffled.');
 
     if (signal?.aborted) throw new DOMException('Cancelled', 'AbortError');
 

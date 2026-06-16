@@ -1,13 +1,13 @@
-/**
+/*
  * Content script entry point for YT Music True Shuffle.
  *
  * Responsibilities:
- *  1. Detect playlist pages (ignores albums, artists, watch pages)
+ *  1. Detect playlist pages
  *  2. Inject "True Shuffle" + "Restore" buttons into the playlist header
- *  3. Coordinate the full shuffle flow:
- *       collect tracks → backup → shuffle → apply order → show result
- *  4. Handle SPA navigation (YouTube Music never does a full page reload)
- *  5. Support cancellation mid-operation via AbortController
+ *  3. Shuffle flow:
+ *       collect tracks -> backup -> shuffle -> apply order
+ *  4. Handle SPA navigation
+ *  5. Support cancellation mid-operation
  */
 
 import { logger } from '../utils/logger';
@@ -22,15 +22,11 @@ import { buttonInjector } from '../ui/button';
 import { ProgressModal } from '../ui/progressModal';
 import type { PlaylistTrack } from '../api/types';
 
-// ─── Timing constants ────────────────────────────────────────────────────────
-
-/** Wait after a navigation event before touching the DOM. */
+// time to wait for navigation
 const NAV_SETTLE_MS = 1_200;
 
-/** Wait after navigation before injecting buttons (header may not be ready). */
+// time to wait after navigation to inject
 const INJECT_DELAY_MS = 1_800;
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 class TrueShuffleExtension {
   private nav = new NavigationDetector();
@@ -39,14 +35,13 @@ class TrueShuffleExtension {
   private apiReady = false;
 
   async boot(): Promise<void> {
-    logger.info('YT Music True Shuffle booting…');
+    logger.info('YT Music True Shuffle booting...');
 
-    // Initialise the API client (reads ytcfg from the page)
+    // Initialise the API client
     await this.initApi();
 
     // Listen for SPA route changes
     this.nav.onNavigate((_url, _prev) => {
-      // Small debounce so YTM has time to render the new route
       setTimeout(() => this.handleRouteChange(), NAV_SETTLE_MS);
     });
 
@@ -56,15 +51,12 @@ class TrueShuffleExtension {
     logger.info('Boot complete');
   }
 
-  // ─── Route handling ───────────────────────────────────────────────────────
-
   private async handleRouteChange(): Promise<void> {
     const playlistId = getPlaylistIdFromUrl();
 
     if (!isPlaylistPage() || !playlistId) {
       // Navigated away from a playlist
       if (this.currentPlaylistId) {
-        logger.debug('Left playlist page — removing buttons');
         buttonInjector.destroy();
         this.currentPlaylistId = null;
       }
@@ -80,9 +72,7 @@ class TrueShuffleExtension {
     }
 
     this.currentPlaylistId = playlistId;
-    logger.info(`Playlist page detected: ${playlistId}`);
 
-    // Re-init API if we haven't successfully done so yet
     if (!this.apiReady) await this.initApi();
 
     await sleep(INJECT_DELAY_MS);
@@ -97,7 +87,7 @@ class TrueShuffleExtension {
     });
   }
 
-  // ─── API initialisation ───────────────────────────────────────────────────
+  // API initialisation
 
   private async initApi(): Promise<void> {
     try {
@@ -108,7 +98,7 @@ class TrueShuffleExtension {
     }
   }
 
-  // ─── Shuffle operation ────────────────────────────────────────────────────
+  // Shuffle operation 
 
   private async runShuffle(playlistId: string): Promise<void> {
     if (this.operationInProgress) {
@@ -123,14 +113,9 @@ class TrueShuffleExtension {
     modal.show('True Shuffle');
 
     try {
-      // ── Step 1: Collect tracks ─────────────────────────────────────────
-      //
-      // The collector scrolls the page to render all tracks, then reads
-      // el.data from every ytmusic-responsive-list-item-renderer to get
-      // the RESOLVED setVideoId values (the API returns placeholders for
-      // tracks 101+ so we must read from the DOM instead).
+      // Step 1: Collect tracks
       modal.update({
-        status: '📜 Scrolling playlist to load all tracks…',
+        status: 'Scrolling playlist to load all tracks…',
         progressLabel: 'Scroll to load tracks 101+',
       });
 
@@ -139,18 +124,18 @@ class TrueShuffleExtension {
       playlistCollector.setProgressCallback(({ collected, phase }) => {
         if (phase === 'scrolling') {
           modal.update({
-            status: `📜 Scrolling to load all tracks… (${collected} loaded so far)`,
+            status: `Scrolling to load all tracks… (${collected} loaded so far)`,
             progressLabel: `${collected} tracks visible`,
           });
         } else if (phase === 'extracting') {
           modal.update({
-            status: `📋 Reading track data from page…`,
+            status: `Reading track data from page…`,
             progressLabel: `${collected} tracks found`,
           });
         } else {
           // api-fallback
           modal.update({
-            status: `⚠️ DOM read failed — using API fallback (first ~100 tracks only)`,
+            status: `⚠️ DOM read failed! -> using API fallback (first ~100 tracks only)`,
             progressLabel: `${collected} tracks`,
           });
         }
@@ -176,12 +161,12 @@ class TrueShuffleExtension {
       }
 
       modal.update({
-        status: `✅ Loaded ${tracks.length} tracks. Saving backup…`,
+        status: `Loaded ${tracks.length} tracks. Saving backup…`,
         progress: 20,
         progressLabel: `${tracks.length} tracks`,
       });
 
-      // ── Step 2: Backup ─────────────────────────────────────────────────
+      // Step 2: Backup
       const playlistTitle =
         document.querySelector(
           'ytmusic-detail-header-renderer h2, ytmusic-responsive-header-renderer h2, .ytmusic-detail-header-renderer yt-formatted-string.title'
@@ -192,26 +177,26 @@ class TrueShuffleExtension {
       await backupManager.save(playlistId, playlistTitle, tracks);
 
       modal.update({
-        status: '🔀 Computing random order…',
+        status: 'Computing random order…',
         progress: 28,
       });
 
-      // ── Step 3: Shuffle ────────────────────────────────────────────────
-      await sleep(200); // Tiny pause so the UI "flickers" to the shuffle step
+      // Step 3: Shuffle
+      await sleep(200);
       const shuffled = shuffleAndVerify(tracks);
 
       modal.update({
-        status: `⚙️ Applying new order to playlist…`,
+        status: `Applying new order to playlist…`,
         progress: 32,
         progressLabel: `0 / ${tracks.length - 1} moves`,
       });
 
-      // ── Step 4: Apply ──────────────────────────────────────────────────
+      // Step 4: Apply
       playlistShuffler.setProgressCallback(
         ({ completedMoves, totalMoves, batchIndex, totalBatches }) => {
           const pct = 32 + Math.round((completedMoves / totalMoves) * 63);
           modal.update({
-            status: `⚙️ Reordering… (batch ${batchIndex}/${totalBatches})`,
+            status: `Reordering… (batch ${batchIndex}/${totalBatches})`,
             progress: pct,
             progressLabel: `${completedMoves} / ${totalMoves} moves`,
           });
@@ -231,7 +216,7 @@ class TrueShuffleExtension {
       }
 
       modal.update({
-        status: '✅ Done!',
+        status: 'DONE!!!',
         progress: 100,
         progressLabel: `${tracks.length} tracks reordered`,
         canClose: true,
@@ -240,7 +225,7 @@ class TrueShuffleExtension {
       // Prune stale backups in the background
       void backupManager.pruneExpired();
 
-      // ── Step 5: Success ────────────────────────────────────────────────
+      // Step 5: Success
       await sleep(400);
       modal.showSuccess(
         `${tracks.length} tracks shuffled and saved to your playlist.\n` +
@@ -259,7 +244,7 @@ class TrueShuffleExtension {
     }
   }
 
-  // ─── Restore operation ────────────────────────────────────────────────────
+  // Restore operation
 
   private async runRestore(playlistId: string): Promise<void> {
     if (this.operationInProgress) {
@@ -289,7 +274,7 @@ class TrueShuffleExtension {
 
     try {
       modal.update({
-        status: `⚙️ Restoring ${backup.trackCount} tracks…`,
+        status: `Restoring ${backup.trackCount} tracks…`,
         progress: undefined,
         progressLabel: `0 / ${backup.trackCount - 1} moves`,
       });
@@ -298,7 +283,7 @@ class TrueShuffleExtension {
         ({ completedMoves, totalMoves, batchIndex, totalBatches }) => {
           const pct = Math.round((completedMoves / totalMoves) * 95);
           modal.update({
-            status: `⚙️ Restoring… (batch ${batchIndex}/${totalBatches})`,
+            status: `Restoring… (batch ${batchIndex}/${totalBatches})`,
             progress: pct,
             progressLabel: `${completedMoves} / ${totalMoves} moves`,
           });
@@ -308,7 +293,7 @@ class TrueShuffleExtension {
       await playlistShuffler.applyOrder(playlistId, backup.tracks, modal.signal);
 
       modal.update({
-        status: '✅ Restored!',
+        status: 'Restored!',
         progress: 100,
         progressLabel: `${backup.trackCount} tracks`,
         canClose: true,
@@ -332,7 +317,7 @@ class TrueShuffleExtension {
     }
   }
 
-  // ─── Error handling ───────────────────────────────────────────────────────
+  // Error handling
 
   private handleOperationError(modal: ProgressModal, err: unknown): void {
     const isAbort =
@@ -354,7 +339,7 @@ class TrueShuffleExtension {
   }
 }
 
-// ─── Error helpers ────────────────────────────────────────────────────────────
+// Error helpers 
 
 /** Errors that carry a message safe to show directly in the UI. */
 class UserFacingError extends Error {
@@ -399,7 +384,7 @@ function buildErrorMessage(err: unknown): string {
   );
 }
 
-// ─── Boot ─────────────────────────────────────────────────────────────────────
+// Boot
 
 const extension = new TrueShuffleExtension();
 extension.boot().catch(err => {

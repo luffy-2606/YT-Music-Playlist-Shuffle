@@ -29,11 +29,11 @@ const builds = [
 ];
 
 if (watch) {
-  console.log('👀 Watching for changes...');
+  console.log('Watching for changes...');
   const contexts = await Promise.all(builds.map(b => esbuild.context(b)));
   await Promise.all(contexts.map(ctx => ctx.watch()));
 } else {
   console.log('🔨 Building extension...');
   await Promise.all(builds.map(b => esbuild.build(b)));
-  console.log('✅ Build complete! Load the extension root directory in Chrome.');
+  console.log('Build complete! Load the extension root directory in Chrome.');
 }
