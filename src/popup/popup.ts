@@ -43,7 +43,7 @@ async function init(): Promise<void> {
        </div>`
     : `<div class="no-backup">No backup for this playlist yet.</div>`;
 
-  const playlistTitle = backup?.playlistTitle ?? '<your_playlist>';
+  const playlistTitle = backup?.playlistTitle ?? '';
 
   root.innerHTML = `
     <div class="on-playlist">
