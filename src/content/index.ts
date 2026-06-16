@@ -124,14 +124,36 @@ class TrueShuffleExtension {
 
     try {
       // ── Step 1: Collect tracks ─────────────────────────────────────────
-      modal.update({ status: '📋 Loading playlist tracks…' });
+      //
+      // The collector scrolls the page to render all tracks, then reads
+      // el.data from every ytmusic-responsive-list-item-renderer to get
+      // the RESOLVED setVideoId values (the API returns placeholders for
+      // tracks 101+ so we must read from the DOM instead).
+      modal.update({
+        status: '📜 Scrolling playlist to load all tracks…',
+        progressLabel: 'Scroll to load tracks 101+',
+      });
 
       let tracks: PlaylistTrack[] = [];
 
-      playlistCollector.setProgressCallback(({ collected, page }) => {
-        modal.update({
-          status: `📋 Collecting tracks… (page ${page}, ${collected} so far)`,
-        });
+      playlistCollector.setProgressCallback(({ collected, phase }) => {
+        if (phase === 'scrolling') {
+          modal.update({
+            status: `📜 Scrolling to load all tracks… (${collected} loaded so far)`,
+            progressLabel: `${collected} tracks visible`,
+          });
+        } else if (phase === 'extracting') {
+          modal.update({
+            status: `📋 Reading track data from page…`,
+            progressLabel: `${collected} tracks found`,
+          });
+        } else {
+          // api-fallback
+          modal.update({
+            status: `⚠️ DOM read failed — using API fallback (first ~100 tracks only)`,
+            progressLabel: `${collected} tracks`,
+          });
+        }
       });
 
       tracks = await playlistCollector.collectAll(playlistId, modal.signal);
@@ -145,13 +167,16 @@ class TrueShuffleExtension {
       if (tracks.length < 2) {
         throw new UserFacingError(
           `Only ${tracks.length} track(s) found.\n\n` +
-            'Make sure you own this playlist and that it has at least 2 tracks. ' +
-            'Auto-generated playlists (mixes, radios) cannot be reordered.'
+            'Make sure:\n' +
+            '• You are signed in to YouTube Music\n' +
+            '• This is a playlist you own (not a mix or radio)\n' +
+            '• The playlist has at least 2 tracks\n\n' +
+            'If the playlist is large, try scrolling it manually first, then shuffle.'
         );
       }
 
       modal.update({
-        status: `✅ Collected ${tracks.length} tracks. Saving backup…`,
+        status: `✅ Loaded ${tracks.length} tracks. Saving backup…`,
         progress: 20,
         progressLabel: `${tracks.length} tracks`,
       });
