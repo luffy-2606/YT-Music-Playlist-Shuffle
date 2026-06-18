@@ -120,6 +120,21 @@
       font-size: 11px; color: rgba(255,255,255,0.28); text-decoration: none;
     }
     .footer a:hover { color: rgba(255,255,255,0.55); }
+    /* Container adjustment */
+    .state-empty .icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px; /* Adjust spacing below the logo */
+    }
+
+    /* Style for the new image logo */
+    .empty-state-logo {
+      width: 48px;        /* Set standard responsive width */
+      height: 48px;       /* Set standard responsive height */
+      object-fit: contain;
+      display: block;
+    }
   </style>
 </head>
 <body>
@@ -144,20 +159,5 @@
   </div>
 
   <script src="dist/popup.js"></script>
-  <script>
-    document.getElementById('clear-backups')?.addEventListener('click', async e => {
-      e.preventDefault();
-      if (!confirm('Delete all saved playlist backups?')) return;
-      const all = await chrome.storage.local.get(null);
-      const keys = Object.keys(all).filter(k => k.startsWith('ytms_backup_'));
-      if (keys.length) {
-        await chrome.storage.local.remove(keys);
-        alert(`Cleared ${keys.length} backup(s).`);
-      } else {
-        alert('No backups to clear.');
-      }
-      location.reload();
-    });
-  </script>
 </body>
 </html>

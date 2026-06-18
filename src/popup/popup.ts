@@ -22,7 +22,9 @@ async function init(): Promise<void> {
   if (!onPlaylist || !currentListId || !tab?.id) {
     root.innerHTML = `
       <div class="state-empty">
-        <div class="icon">🎵</div>
+        <div class="icon">
+          <img src="YT-Music-Logo.png" alt="YT Music Logo" class="empty-state-logo" />
+        </div>
         <p>Open a YouTube Music playlist to use True Shuffle.</p>
       </div>`;
     return;
@@ -74,7 +76,7 @@ async function init(): Promise<void> {
   document.getElementById('shuffle-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('shuffle-btn') as HTMLButtonElement;
     btn.disabled    = true;
-    btn.textContent = '⏳ Starting…';
+    btn.textContent = 'Starting...';
 
     try {
       await chrome.tabs.sendMessage(tab.id!, { type: 'YTMS_SHUFFLE' });
@@ -88,11 +90,11 @@ async function init(): Promise<void> {
     }
   });
 
-  // ── Restore button ───────────────────────────────────────────────────────
+  // Restore button
   document.getElementById('restore-btn')?.addEventListener('click', async () => {
     const btn = document.getElementById('restore-btn') as HTMLButtonElement;
     btn.disabled    = true;
-    btn.textContent = '⏳ Starting…';
+    btn.textContent = 'Starting...';
 
     try {
       await chrome.tabs.sendMessage(tab.id!, { type: 'YTMS_RESTORE' });
@@ -103,6 +105,23 @@ async function init(): Promise<void> {
       btn.innerHTML   = '<span class="btn-icon">↩</span> Restore original order';
       showError('Could not reach the page. Make sure the playlist is open and try again.');
     }
+  });
+
+  // Add this block inside your async function init() {} setup routine right before the final closing brace:
+  document.getElementById('clear-backups')?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    if (!confirm('Delete all saved playlist backups?')) return;
+    
+    const all = await chrome.storage.local.get(null);
+    const keys = Object.keys(all).filter(k => k.startsWith('ytms_backup_'));
+    
+    if (keys.length) {
+      await chrome.storage.local.remove(keys);
+      alert(`Cleared ${keys.length} backup(s).`);
+    } else {
+      alert('No backups to clear.');
+    }
+    window.location.reload();
   });
 }
 
