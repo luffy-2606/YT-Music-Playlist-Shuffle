@@ -57,3 +57,17 @@ This project is built using TypeScript. To set up the development environment:
 Contributions are welcome. If you find a bug or have a feature request, please open an issue first to discuss what you would like to change.
 
 When submitting pull requests, please ensure that your code adheres to the existing TypeScript structure and that any new UI elements match the native YouTube Music design language.
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=luffy-2606%2FYT-Music-Playlist-Shuffle&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=luffy-2606/YT-Music-Playlist-Shuffle&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=luffy-2606/YT-Music-Playlist-Shuffle&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=luffy-2606/YT-Music-Playlist-Shuffle&type=date&legend=top-left" />
+ </picture>
+</a>
+
+## License
+
+GPL-3.0 -- see [LICENSE](LICENSE)
