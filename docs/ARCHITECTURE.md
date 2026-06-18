@@ -16,87 +16,37 @@ bundled by esbuild into two output files:
 
 ```
 src/
-├── content/
-│   └── index.ts          ← Entry point. Owns the operation lifecycle.
-│
 ├── api/
 │   ├── types.ts          ← All TypeScript interfaces for the Innertube API
 │   └── ytMusicApi.ts     ← HTTP client: auth, browse, edit_playlist
 │
+├── content/
+│   └── index.ts          ← Entry point. Owns the operation lifecycle.
+│
 ├── playlist/
 │   ├── collector.ts      ← Fetches all tracks (handles pagination)
+│   └── domCollector.ts   ← Gets the tracks via DOM scrolling
 │   └── shuffler.ts       ← Applies a new order via batched API calls
+│
+├── popup/
+│   └── popup.ts          ← Popup reads backups, shows restore option
+│
+├── storage/
+│   └── backup.ts         ← chrome.storage.local CRUD for playlist backups
 │
 ├── ui/
 │   ├── styles.ts         ← All CSS as a TypeScript string (injected once)
 │   ├── button.ts         ← Injects "True Shuffle" + "Restore" into YTM header
 │   └── progressModal.ts  ← Progress modal / success / error states
 │
-├── storage/
-│   └── backup.ts         ← chrome.storage.local CRUD for playlist backups
-│
-├── utils/
-│   ├── logger.ts         ← Prefixed console logger
-│   ├── crypto.ts         ← SHA-1 / SAPISIDHASH for YTM auth
-│   ├── dom.ts            ← waitForElement, sleep, retry, cookie helpers
-│   ├── navigation.ts     ← SPA route-change detector (patches History API)
-│   └── shuffle.ts        ← Cryptographically-secure Fisher-Yates shuffle
-│
-└── popup/
-    └── popup.ts          ← Popup reads backups, shows restore option
-```
-
----
-
-## Data Flow: Shuffle Operation
+└── utils/
+    ├── crypto.ts         ← SHA-1 / SAPISIDHASH for YTM auth
+    ├── dom.ts            ← waitForElement, sleep, retry, cookie helpers
+    ├── logger.ts         ← Prefixed console logger
+    ├── navigation.ts     ← SPA route-change detector (patches History API)
+    └── shuffle.ts        ← Cryptographically-secure Fisher-Yates shuffle
 
 ```
-User clicks "True Shuffle"
-         │
-         ▼
-content/index.ts → runShuffle(playlistId)
-         │
-         ├─ 1. Show ProgressModal
-         │
-         ├─ 2. playlist/collector.ts → collectAll(playlistId)
-         │       └── api/ytMusicApi.ts → POST /browse (VL<playlistId>)
-         │             ├── page 1: extract tracks + continuation token
-         │             ├── page 2: POST /browse {continuation}
-         │             └── … until no more continuation tokens
-         │
-         ├─ 3. storage/backup.ts → save(playlistId, title, tracks)
-         │       └── chrome.storage.local.set(...)
-         │
-         ├─ 4. utils/shuffle.ts → shuffleAndVerify(tracks)
-         │       └── Fisher-Yates using crypto.getRandomValues()
-         │
-         ├─ 5. playlist/shuffler.ts → applyOrder(playlistId, shuffled)
-         │       ├── Generate n-1 ACTION_MOVE_VIDEO_BEFORE actions
-         │       │     (right-to-left: move T[i-1] before T[i])
-         │       └── Batch into groups of 30
-         │             └── api/ytMusicApi.ts → POST /browse/edit_playlist
-         │                   ├── batch 1 (30 actions)
-         │                   ├── … 600ms delay …
-         │                   └── batch N
-         │
-         └─ 6. ProgressModal.showSuccess() / showError()
-```
-
----
-
-## SPA Navigation Handling
-
-YouTube Music never does a full page reload. All routing is via the History API.
-
-`NavigationDetector` patches `history.pushState` and `history.replaceState` and
-listens for `popstate`. It also polls the URL every 750ms as a safety net.
-
-On each navigation, `content/index.ts` calls `handleRouteChange()`:
-- If on a `/playlist?list=` URL → inject buttons (if not already present)
-- If navigated away → call `buttonInjector.destroy()`
-
-The `ButtonInjector` additionally runs a `MutationObserver` on the header
-element to re-attach the buttons if YouTube Music's own re-renders remove them.
 
 ---
 
@@ -143,7 +93,7 @@ the values via `window.postMessage`.
 | 50-track playlist | ~3–5 seconds |
 | 200-track playlist | ~10–15 seconds |
 | 1000-track playlist | ~60–90 seconds |
-| 5000-track playlist | ~6–8 minutes (MAX_TRACKS cap at 5000) |
+| 5000-track playlist | ~6–8 minutes |
 
 The main bottleneck is the required delay between API batches to avoid
 rate-limiting. The UI shows live progress so the user is never left guessing.
@@ -160,7 +110,6 @@ chrome.storage.local:
     playlistId:    string,          // e.g. "PLxxx"
     playlistTitle: string,
     savedAt:       string,          // ISO-8601
-    trackCount:    number,
     tracks: [{
       videoId:    string,           // e.g. "dQw4w9WgXcQ"
       setVideoId: string,           // e.g. "CAEQARoECAIQBA=="
