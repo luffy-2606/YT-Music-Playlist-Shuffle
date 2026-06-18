@@ -36,7 +36,10 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["injected-extractor.js"],
+      "resources": [
+        "icons/icon128.png",
+        "injected-extractor.js"
+      ],
       "matches": ["https://music.youtube.com/*"]
     }
   ]

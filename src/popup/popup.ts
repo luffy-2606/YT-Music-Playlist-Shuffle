@@ -30,27 +30,34 @@ async function init(): Promise<void> {
     return;
   }
 
+  // Fallback: Extract the real playlist title directly from the browser tab
+  let structuralPlaylistName = currentListId; 
+  if (tab.title) {
+    structuralPlaylistName = tab.title.replace(' - YouTube Music', '').trim();
+  }
+
   // Load backup info
   const allData = await chrome.storage.local.get(null);
   const backup = allData[`${KEY_PREFIX}${currentListId}`] as
     | PlaylistBackup
     | undefined;
 
+  // Read backup.playlistTitle if it exists
+  const displayName = backup?.playlistTitle || structuralPlaylistName;
+
   const backupHtml = backup
     ? `<div class="backup-row">
          <span class="backup-badge">✓ Backup saved</span>
          <span class="backup-meta">
-           ${new Date(backup.savedAt).toLocaleDateString()} · ${backup.trackCount} tracks
+           ${new Date(backup.savedAt).toLocaleDateString()} · ${backup.tracks?.length || 0} tracks
          </span>
        </div>`
     : `<div class="no-backup">No backup for this playlist yet.</div>`;
 
-  const playlistTitle = backup?.playlistTitle ?? '';
-
   root.innerHTML = `
     <div class="on-playlist">
       <div class="playlist-label">Current playlist</div>
-      <div class="playlist-title">${esc(playlistTitle)}</div>
+      <div class="playlist-title">${displayName}</div>
 
       <button id="shuffle-btn" class="btn-primary">
         Permanently Shuffle
@@ -80,7 +87,6 @@ async function init(): Promise<void> {
 
     try {
       await chrome.tabs.sendMessage(tab.id!, { type: 'YTMS_SHUFFLE' });
-      // Focus the tab so the user can see the progress modal
       await chrome.tabs.update(tab.id!, { active: true });
       window.close();
     } catch {
@@ -107,7 +113,7 @@ async function init(): Promise<void> {
     }
   });
 
-  // Add this block inside your async function init() {} setup routine right before the final closing brace:
+  // Clear Backups button
   document.getElementById('clear-backups')?.addEventListener('click', async (e) => {
     e.preventDefault();
     if (!confirm('Delete all saved playlist backups?')) return;
@@ -135,11 +141,4 @@ function showError(msg: string): void {
   document.getElementById('app')?.appendChild(div);
 }
 
-function esc(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-init().catch(console.error);
+document.addEventListener('DOMContentLoaded', init);

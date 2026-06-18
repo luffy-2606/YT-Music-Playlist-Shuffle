@@ -220,7 +220,7 @@ class TrueShuffleExtension {
           modal.update({
             status: `Reordering… (batch ${batchIndex}/${totalBatches})`,
             progress: pct,
-            progressLabel: `${completedMoves} / ${totalMoves} moves`,
+            progressLabel: `${completedMoves} / ${totalMoves+1}  moves`,
           });
         }
       );
@@ -307,7 +307,7 @@ class TrueShuffleExtension {
           modal.update({
             status: `Restoring… (batch ${batchIndex}/${totalBatches})`,
             progress: pct,
-            progressLabel: `${completedMoves} / ${totalMoves} moves`,
+            progressLabel: `${completedMoves} / ${totalMoves+1} moves`,
           });
         }
       );

@@ -41,7 +41,13 @@ export class ProgressModal {
     overlay.innerHTML = `
       <div class="ytms-modal" role="dialog" aria-modal="true" aria-label="${title}">
         <div class="ytms-modal-head">
-          <div class="ytms-modal-icon-wrap">${ICONS.shuffle}</div>
+          <div class="ytms-modal-icon-wrap">
+            <img 
+              src="${chrome.runtime.getURL('icons/icon128.png')}" 
+              alt="True Shuffle Logo" 
+              class="ytms-modal-logo" 
+            />
+          </div>
           <div>
             <div class="ytms-modal-title">${title}</div>
             <div class="ytms-modal-sub">YouTube Music Permanently Shuffle</div>

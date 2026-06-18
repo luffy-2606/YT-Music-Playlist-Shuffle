@@ -313,6 +313,38 @@ export const EXTENSION_STYLES = `
 .ytms-toast.ytms-toast-success { background: #1a5c33; }
 .ytms-toast.ytms-toast-error   { background: #7a1515; }
 
+.ytms-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.ytms-modal-icon-wrap {
+  width: 40px;        
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: transparent;   
+  border-radius: 0;         
+  overflow: hidden;
+}
+
+.ytms-modal-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.ytms-modal-icon-wrap svg {
+  width: 20px;
+  height: 20px;
+  fill: #fff;
+}
+
 @keyframes ytms-toast-in {
   from { transform: translateX(-50%) translateY(16px); opacity: 0; }
   to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
