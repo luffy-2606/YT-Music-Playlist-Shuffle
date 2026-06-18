@@ -1,6 +1,6 @@
 {
   "name": "yt-music-true-shuffle",
-  "version": "1.0.0",
+  "version": "1.19.0",
   "description": "Chrome extension that permanently shuffles YouTube Music playlist order",
   "type": "module",
   "scripts": {

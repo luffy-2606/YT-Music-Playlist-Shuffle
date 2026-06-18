@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YT Music True Shuffle",
-  "version": "1.0.0",
+  "version": "1.19.0",
   "description": "Permanently reorder YouTube Music playlists using a true Fisher-Yates shuffle. Changes are saved to your playlist, not just playback order.",
   "permissions": [
     "cookies",
