@@ -146,8 +146,8 @@ class TrueShuffleExtension {
       playlistCollector.setProgressCallback(({ collected, phase }) => {
         if (phase === 'scrolling') {
           modal.update({
-            status: `Scrolling to load all tracks… (${collected} loaded so far)`,
-            progressLabel: `${collected} tracks visible`,
+            status: `Scrolling to load all tracks… (${collected-7} loaded so far)`,
+            progressLabel: `${collected-7} tracks visible`, // -7 due to the recommended ones getting counted as well
           });
         } else if (phase === 'extracting') {
           modal.update({

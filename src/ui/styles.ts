@@ -195,12 +195,17 @@ export const EXTENSION_STYLES = `
 
 .ytms-modal-foot {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center; 
   align-items: center;
   gap: 10px;
+  margin-top: 16px;
 }
 
 .ytms-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   background: transparent;
   border: 1.5px solid rgba(255,255,255,0.2);
   color: rgba(255,255,255,0.65);
@@ -216,6 +221,10 @@ export const EXTENSION_STYLES = `
 .ytms-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .ytms-btn-solid {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   background: #f03;
   border: none;
   color: #fff;
@@ -230,6 +239,10 @@ export const EXTENSION_STYLES = `
 .ytms-btn-solid:hover { background: #d4002a; }
 
 .ytms-btn-danger-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   background: transparent;
   border: 1.5px solid rgba(255,68,68,0.55);
   color: #ff8080;
@@ -242,6 +255,15 @@ export const EXTENSION_STYLES = `
   transition: background 0.15s;
 }
 .ytms-btn-danger-ghost:hover { background: rgba(255,68,68,0.1); }
+
+.ytms-btn-ghost svg,
+.ytms-btn-solid svg,
+.ytms-btn-danger-ghost svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
 
 /* ----- Result screens ----- */
 
